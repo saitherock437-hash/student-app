@@ -13,7 +13,7 @@ import (
 var db *sql.DB
 
 func main() {
-	// ✅ Fix 1: Add SSL for Render DB
+	// ✅ DB connection (Render requires SSL)
 	connStr := os.Getenv("DATABASE_URL") + "?sslmode=require"
 
 	var err error
@@ -36,7 +36,7 @@ func main() {
 	http.HandleFunc("/submit", submitHandler)
 	http.HandleFunc("/view", viewHandler)
 
-	// ✅ Fix 2: Dynamic PORT (IMPORTANT for Render)
+	// ✅ Dynamic port (Render requirement)
 	port := os.Getenv("PORT")
 	if port == "" {
 		port = "10000"
@@ -78,6 +78,10 @@ func homeHandler(w http.ResponseWriter, r *http.Request) {
 
 func submitHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method == "POST" {
+
+		// ✅ FIX: HTML rendering
+		w.Header().Set("Content-Type", "text/html")
+
 		name := r.FormValue("name")
 		email := r.FormValue("email")
 		course := r.FormValue("course")
@@ -98,7 +102,12 @@ func submitHandler(w http.ResponseWriter, r *http.Request) {
 		rows, _ := res.RowsAffected()
 		log.Println("✅ Rows inserted:", rows)
 
-		fmt.Fprintf(w, "Data saved successfully! <br><a href='/'>Go Back</a>")
+		// ✅ Better UI
+		fmt.Fprintf(w, `
+			<h3>✅ Data saved successfully!</h3>
+			<a href="/">Go Back</a><br><br>
+			<a href="/view">View Students</a>
+		`)
 	}
 }
 
@@ -112,8 +121,18 @@ func viewHandler(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "text/html")
 
-	fmt.Fprintf(w, "<h2>Students List</h2>")
-	fmt.Fprintf(w, "<table border='1'><tr><th>ID</th><th>Name</th><th>Email</th><th>Course</th></tr>")
+	fmt.Fprintf(w, `
+		<h2>Students List</h2>
+		<table border="1" cellpadding="10">
+		<tr>
+			<th>ID</th>
+			<th>Name</th>
+			<th>Email</th>
+			<th>Course</th>
+		</tr>
+	`)
+
+	count := 0
 
 	for rows.Next() {
 		var id int
@@ -125,10 +144,19 @@ func viewHandler(w http.ResponseWriter, r *http.Request) {
 			continue
 		}
 
+		count++
+
 		fmt.Fprintf(w,
 			"<tr><td>%d</td><td>%s</td><td>%s</td><td>%s</td></tr>",
 			id, name, email, course)
 	}
 
-	fmt.Fprintf(w, "</table><br><a href='/'>Back</a>")
+	fmt.Fprintf(w, "</table>")
+
+	// ✅ If no data
+	if count == 0 {
+		fmt.Fprintf(w, "<p>No student data found.</p>")
+	}
+
+	fmt.Fprintf(w, "<br><a href='/'>Back</a>")
 }
